@@ -11,6 +11,10 @@ import { Navigation } from "@/components/navigation"
 import { useLanguage } from "@/hooks/use-language"
 import { useCartStore } from "@/stores/cart-store"
 import { SupplierReviews } from "@/components/supplier/supplier-reviews" 
+import { useProductsStore } from "@/stores/products-store"
+import { useOrdersStore } from "@/stores/orders-store"
+import { useNotificationsStore } from "@/stores/notifications-store"
+import { useAuth } from "@/hooks/use-auth"
 import { 
   ArrowLeft, 
   Star, 
@@ -28,57 +32,21 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-interface Product {
-  id: string
-  name: string
-  description: string
-  price: string
-  unit: string
-  minOrder: string
-  category: string
-  images: string[]
-  inStock: boolean
-  freshness: string
-  origin: string
-  certifications: string[]
-}
-
-interface Supplier {
-  id: string
-  name: string
-  rating: number
-  totalReviews: number
-  location: string
-  joinedDate: string
-  verified: boolean
-  avatar: string
-  description: string
-  responseTime: string
-  phone: string
-  email: string
-  products: Product[]
-}
-
-interface Review {
-  id: string
-  customerName: string
-  rating: number
-  comment: string
-  date: string
-  verified: boolean
-}
-
 // Separate component that uses useSearchParams
 function ProductDetailsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useLanguage()
+  const { user, profile } = useAuth()
   const { addToCart, getItemQuantity } = useCartStore()
+  const { getProductsBySupplier, getProductById } = useProductsStore()
+  const { addOrder } = useOrdersStore()
+  const { addNotification } = useNotificationsStore()
   
   const supplierId = searchParams.get('supplier')
-  const [supplier, setSupplier] = useState<Supplier | null>(null)
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [reviews, setReviews] = useState<Review[]>([])
+  const productId = searchParams.get('product')
+  const [supplier, setSupplier] = useState<any>(null)
+  const [selectedProduct, setSelectedProduct] = useState<any>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const [isWishlisted, setIsWishlisted] = useState(false)
@@ -86,82 +54,38 @@ function ProductDetailsContent() {
   const [isAddingToCart, setIsAddingToCart] = useState(false)
 
   useEffect(() => {
-    // Demo data - in real app, fetch from API
-    const demoSupplier: Supplier = {
-      id: supplierId || "fresh-vegetables-co",
-      name: "Fresh Vegetables Co.",
-      rating: 4.8,
-      totalReviews: 127,
-      location: "Mumbai, Maharashtra",
-      joinedDate: "2022-01-15",
-      verified: true,
-      avatar: "/supplier-avatar.png?height=100&width=100",
-      description: "Premium quality fresh vegetables sourced directly from farms. We ensure the highest standards of quality and freshness.",
-      responseTime: "Within 2 hours",
-      phone: "+91 98765 43210",
-      email: "contact@freshvegetables.com",
-      products: [
-        {
-          id: "1",
-          name: "Premium Red Onions",
-          description: "Fresh, premium quality red onions sourced from Maharashtra farms. Perfect for cooking and long storage.",
-          price: "₹25",
-          unit: "per kg",
-          minOrder: "10 kg",
-          category: "vegetables",
-          images: [
-            "/onions-1.jpg?height=400&width=600",
-            "/onions-2.jpg?height=400&width=600",
-            "/onions-3.jpg?height=400&width=600"
-          ],
-          inStock: true,
-          freshness: "Harvested 2 days ago",
-          origin: "Nashik, Maharashtra",
-          certifications: ["Organic", "Pesticide-free"]
-        },
-        {
-          id: "2",
-          name: "Fresh Tomatoes",
-          description: "Juicy, ripe tomatoes perfect for cooking and salads. Grown using sustainable farming practices.",
-          price: "₹30",
-          unit: "per kg",
-          minOrder: "5 kg",
-          category: "vegetables",
-          images: [
-            "/tomatoes-1.jpg?height=400&width=600",
-            "/tomatoes-2.jpg?height=400&width=600"
-          ],
-          inStock: true,
-          freshness: "Harvested 1 day ago",
-          origin: "Pune, Maharashtra",
-          certifications: ["Farm Fresh", "Quality Assured"]
+    if (supplierId) {
+      const supplierProducts = getProductsBySupplier(supplierId)
+      
+      if (supplierProducts.length > 0) {
+        const supplierData = {
+          id: supplierId,
+          name: supplierProducts[0].supplierName,
+          rating: 4.8,
+          totalReviews: 127,
+          location: supplierProducts[0].origin,
+          joinedDate: "2022-01-15",
+          verified: true,
+          avatar: "/supplier-avatar.png?height=100&width=100",
+          description: "Premium quality products sourced directly from trusted sources. We ensure the highest standards of quality and freshness.",
+          responseTime: "Within 2 hours",
+          phone: "+91 98765 43210",
+          email: "contact@supplier.com",
+          products: supplierProducts
         }
-      ]
-    }
-
-    const demoReviews: Review[] = [
-      {
-        id: "1",
-        customerName: "Rajesh Kumar",
-        rating: 5,
-        comment: "Excellent quality vegetables. Very fresh and delivered on time.",
-        date: "2024-01-15",
-        verified: true
-      },
-      {
-        id: "2",
-        customerName: "Priya Sharma",
-        rating: 4,
-        comment: "Good quality but delivery was slightly delayed.",
-        date: "2024-01-10",
-        verified: true
+        
+        setSupplier(supplierData)
+        
+        // Set selected product based on productId or default to first product
+        if (productId) {
+          const product = getProductById(productId)
+          setSelectedProduct(product)
+        } else {
+          setSelectedProduct(supplierProducts[0])
+        }
       }
-    ]
-
-    setSupplier(demoSupplier)
-    setSelectedProduct(demoSupplier.products[0])
-    setReviews(demoReviews)
-  }, [supplierId])
+    }
+  }, [supplierId, productId, getProductsBySupplier, getProductById])
 
   const currentCartQuantity = selectedProduct 
     ? getItemQuantity(selectedProduct.id, supplier?.id || '') 
@@ -172,6 +96,7 @@ function ProductDetailsContent() {
   }
 
   const handleProductSelect = (product: Product) => {
+  const handleProductSelect = (product: any) => {
     setSelectedProduct(product)
     setCurrentImageIndex(0)
   }
@@ -187,7 +112,7 @@ function ProductDetailsContent() {
         productName: selectedProduct.name,
         supplierId: supplier.id,
         supplierName: supplier.name,
-        price: parseInt(selectedProduct.price.replace('₹', '')),
+        price: selectedProduct.price,
         quantity: quantity,
         unit: selectedProduct.unit,
         image: selectedProduct.images[0],
@@ -196,6 +121,18 @@ function ProductDetailsContent() {
       }
 
       addToCart(cartItem)
+      
+      // Add notification for supplier
+      if (user && profile) {
+        addNotification({
+          userId: supplier.id,
+          title: "New Item Added to Cart",
+          message: `${profile.name} added ${quantity} ${selectedProduct.unit} of ${selectedProduct.name} to cart`,
+          type: "order",
+          read: false,
+          actionUrl: "/orders"
+        })
+      }
       
       toast.success(
         `${quantity} ${selectedProduct.unit} of ${selectedProduct.name} added to cart!`,
@@ -317,7 +254,7 @@ function ProductDetailsContent() {
 
                   <div className="flex items-center gap-4">
                     <span className="text-3xl font-bold text-green-600">
-                      {selectedProduct.price}
+                      ₹{selectedProduct.price}
                     </span>
                     <span className="text-gray-500">{selectedProduct.unit}</span>
                     <Badge variant={selectedProduct.inStock ? "default" : "destructive"}>
@@ -400,7 +337,7 @@ function ProductDetailsContent() {
                 </div>
 
                 <div className="text-lg font-semibold">
-                  {t("total")}: ₹{parseInt(selectedProduct.price.replace('₹', '')) * quantity}
+                  {t("total")}: ₹{selectedProduct.price * quantity}
                 </div>
 
                 <div className="space-y-2">
@@ -521,7 +458,7 @@ function ProductDetailsContent() {
                       <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-bold text-green-600">
-                          {product.price} {product.unit}
+                          ₹{product.price} {product.unit}
                         </span>
                         <Button size="sm" disabled={!product.inStock}>
                           {t("select")}

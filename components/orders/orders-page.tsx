@@ -7,92 +7,35 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Navigation } from "@/components/navigation"
 import { useLanguage } from "@/hooks/use-language"
+import { useAuth } from "@/hooks/use-auth"
+import { useOrdersStore } from "@/stores/orders-store"
+import { RatingModal } from "@/components/ratings/rating-modal"
 import { Package, Truck, CheckCircle, Clock, MapPin, Phone } from "lucide-react"
-
-interface Order {
-  id: string
-  supplier: string
-  items: { name: string; quantity: string; price: number }[]
-  totalAmount: number
-  status: "pending" | "confirmed" | "in-transit" | "delivered" | "cancelled"
-  orderDate: string
-  deliveryDate?: string
-  trackingId?: string
-  supplierContact: string
-  deliveryAddress: string
-}
 
 export function OrdersPage() {
   const { t } = useLanguage()
-  const [orders, setOrders] = useState<Order[]>([])
+  const { user, profile } = useAuth()
+  const { getVendorOrders, reorder } = useOrdersStore()
+  const [orders, setOrders] = useState<any[]>([])
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false)
 
   useEffect(() => {
-    // Demo data
-    const demoOrders: Order[] = [
-      {
-        id: "ORD-001",
-        supplier: "Fresh Vegetables Co.",
-        items: [
-          { name: "Onions", quantity: "10 kg", price: 200 },
-          { name: "Tomatoes", quantity: "5 kg", price: 150 },
-          { name: "Potatoes", quantity: "8 kg", price: 160 },
-        ],
-        totalAmount: 510,
-        status: "delivered",
-        orderDate: "2024-01-15",
-        deliveryDate: "2024-01-17",
-        trackingId: "TRK123456",
-        supplierContact: "+91 98765 43210",
-        deliveryAddress: "Shop 15, Street Food Market, Andheri West, Mumbai",
-      },
-      {
-        id: "ORD-002",
-        supplier: "Spice Masters",
-        items: [
-          { name: "Turmeric Powder", quantity: "2 kg", price: 180 },
-          { name: "Red Chili Powder", quantity: "1 kg", price: 120 },
-          { name: "Coriander Powder", quantity: "1.5 kg", price: 90 },
-        ],
-        totalAmount: 390,
-        status: "in-transit",
-        orderDate: "2024-01-18",
-        deliveryDate: "2024-01-20",
-        trackingId: "TRK789012",
-        supplierContact: "+91 87654 32109",
-        deliveryAddress: "Shop 15, Street Food Market, Andheri West, Mumbai",
-      },
-      {
-        id: "ORD-003",
-        supplier: "Oil & More",
-        items: [
-          { name: "Sunflower Oil", quantity: "5 L", price: 450 },
-          { name: "Mustard Oil", quantity: "2 L", price: 280 },
-        ],
-        totalAmount: 730,
-        status: "confirmed",
-        orderDate: "2024-01-20",
-        deliveryDate: "2024-01-22",
-        trackingId: "TRK345678",
-        supplierContact: "+91 76543 21098",
-        deliveryAddress: "Shop 15, Street Food Market, Andheri West, Mumbai",
-      },
-      {
-        id: "ORD-004",
-        supplier: "Grain Suppliers Ltd.",
-        items: [
-          { name: "Basmati Rice", quantity: "25 kg", price: 1250 },
-          { name: "Toor Dal", quantity: "5 kg", price: 400 },
-        ],
-        totalAmount: 1650,
-        status: "pending",
-        orderDate: "2024-01-21",
-        supplierContact: "+91 65432 10987",
-        deliveryAddress: "Shop 15, Street Food Market, Andheri West, Mumbai",
-      },
-    ]
+    if (user) {
+      const userOrders = getVendorOrders(user.uid)
+      setOrders(userOrders)
+    }
+  }, [user, getVendorOrders])
 
-    setOrders(demoOrders)
-  }, [])
+  const handleReorder = (orderId: string) => {
+    reorder(orderId)
+    toast.success(t("order_placed_successfully"))
+  }
+
+  const handleRateSupplier = (order: any) => {
+    setSelectedOrder(order)
+    setIsRatingModalOpen(true)
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -188,7 +131,7 @@ export function OrdersPage() {
                         >
                           <div>
                             <span className="font-medium">{item.name}</span>
-                            <span className="text-gray-600 ml-2">({item.quantity})</span>
+                            <span className="text-gray-600 ml-2">({item.quantity} units)</span>
                           </div>
                           <span className="font-semibold">₹{item.price}</span>
                         </div>
@@ -291,10 +234,19 @@ export function OrdersPage() {
                   </div>
 
                   <div className="flex justify-end space-x-2 pt-4 border-t">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleReorder(order.id)}
+                    >
                       {t("reorder")}
                     </Button>
-                    <Button size="sm">{t("rate_supplier")}</Button>
+                    <Button 
+                      size="sm"
+                      onClick={() => handleRateSupplier(order)}
+                    >
+                      {t("rate_supplier")}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -310,6 +262,17 @@ export function OrdersPage() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Rating Modal */}
+      {selectedOrder && (
+        <RatingModal
+          isOpen={isRatingModalOpen}
+          onClose={() => setIsRatingModalOpen(false)}
+          supplierName={selectedOrder.supplierName}
+          supplierId={selectedOrder.supplierId}
+          orderId={selectedOrder.id}
+        />
+      )}
     </div>
   )
 }

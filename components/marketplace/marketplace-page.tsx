@@ -9,92 +9,46 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Navigation } from "@/components/navigation"
 import { useLanguage } from "@/hooks/use-language"
+import { useProductsStore } from "@/stores/products-store"
 import { Search, Star, MapPin, ShoppingCart } from "lucide-react"
-
-interface Supplier {
-  id: string
-  name: string
-  rating: number
-  location: string
-  category: string
-  products: string[]
-  priceRange: string
-  verified: boolean
-  image: string
-}
 
 export function MarketplacePage() {
   const { t } = useLanguage()
   const router = useRouter();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([])
+  const { products } = useProductsStore()
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [locationFilter, setLocationFilter] = useState("all")
 
-  useEffect(() => {
-    // Demo data
-    const demoSuppliers: Supplier[] = [
-      {
-        id: "1",
-        name: "Fresh Vegetables Co.",
-        rating: 4.8,
-        location: "Mumbai, Maharashtra",
-        category: "vegetables",
-        products: ["Onions", "Tomatoes", "Potatoes", "Carrots"],
-        priceRange: "₹20-50/kg",
+  // Group products by supplier
+  const suppliers = products.reduce((acc: any[], product) => {
+    const existingSupplier = acc.find(s => s.id === product.supplierId)
+    if (existingSupplier) {
+      existingSupplier.products.push(product.name)
+      existingSupplier.priceRange = `₹${Math.min(existingSupplier.minPrice, product.price)}-${Math.max(existingSupplier.maxPrice, product.price)}`
+      existingSupplier.minPrice = Math.min(existingSupplier.minPrice, product.price)
+      existingSupplier.maxPrice = Math.max(existingSupplier.maxPrice, product.price)
+    } else {
+      acc.push({
+        id: product.supplierId,
+        name: product.supplierName,
+        rating: 4.5 + Math.random() * 0.5, // Random rating between 4.5-5.0
+        location: product.origin,
+        category: product.category,
+        products: [product.name],
+        priceRange: `₹${product.price}`,
+        minPrice: product.price,
+        maxPrice: product.price,
         verified: true,
-        image: "/fresh-vegetables.png?height=200&width=300",
-      },
-      {
-        id: "2",
-        name: "Spice Masters",
-        rating: 4.6,
-        location: "Delhi, NCR",
-        category: "spices",
-        products: ["Turmeric", "Red Chili", "Coriander", "Cumin"],
-        priceRange: "₹100-300/kg",
-        verified: true,
-        image: "/chilli-turmeric.png?height=200&width=300",
-      },
-      {
-        id: "3",
-        name: "Oil & More",
-        rating: 4.5,
-        location: "Pune, Maharashtra",
-        category: "oils",
-        products: ["Sunflower Oil", "Mustard Oil", "Coconut Oil"],
-        priceRange: "₹80-150/L",
-        verified: true,
-        image: "/Sunflower.jpg?height=200&width=300",
-      },
-      {
-        id: "4",
-        name: "Grain Suppliers Ltd.",
-        rating: 4.7,
-        location: "Bangalore, Karnataka",
-        category: "grains",
-        products: ["Rice", "Wheat", "Dal", "Quinoa"],
-        priceRange: "₹30-80/kg",
-        verified: true,
-        image: "/Rice.jpg?height=200&width=300",
-      },
-      {
-        id: "5",
-        name: "Dairy Fresh",
-        rating: 4.4,
-        location: "Chennai, Tamil Nadu",
-        category: "dairy",
-        products: ["Milk", "Paneer", "Butter", "Yogurt"],
-        priceRange: "₹40-200/unit",
-        verified: false,
-        image: "/panner-milk.jpg?height=200&width=300",
-      },
-    ]
-
-    setSuppliers(demoSuppliers)
-    setFilteredSuppliers(demoSuppliers)
+        image: product.images[0] || "/placeholder.svg",
+      })
+    }
+    return acc
   }, [])
+  useEffect(() => {
+    setFilteredProducts(suppliers)
+  }, [products])
 
   useEffect(() => {
     let filtered = suppliers
@@ -115,7 +69,7 @@ export function MarketplacePage() {
       filtered = filtered.filter((supplier) => supplier.location.toLowerCase().includes(locationFilter.toLowerCase()))
     }
 
-    setFilteredSuppliers(filtered)
+    setFilteredProducts(filtered)
   }, [searchTerm, categoryFilter, locationFilter, suppliers])
 
   return (
@@ -175,7 +129,7 @@ export function MarketplacePage() {
 
         {/* Suppliers Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSuppliers.map((supplier) => (
+          {filteredProducts.map((supplier) => (
             <Card key={supplier.id} className="hover:shadow-lg transition-shadow">
               <div className="aspect-video relative overflow-hidden rounded-t-lg">
                 <img
@@ -233,7 +187,7 @@ export function MarketplacePage() {
           ))}
         </div>
 
-        {filteredSuppliers.length === 0 && (
+        {filteredProducts.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">{t("no_suppliers_found")}</p>
             <p className="text-gray-400 mt-2">{t("try_different_filters")}</p>

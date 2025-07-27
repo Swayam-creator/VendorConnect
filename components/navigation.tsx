@@ -2,8 +2,11 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useAuth } from "@/hooks/use-auth"
 import { useLanguage } from "@/hooks/use-language"
+import { useNotificationsStore } from "@/stores/notifications-store"
 import { ShoppingCart, Menu, X, Home, Package, Users, FileText, Settings, LogOut, Globe, Bell } from "lucide-react"
 import Link from "next/link"
 import { CartIcon } from "@/components/cart/cart-icon"
@@ -13,8 +16,12 @@ export function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user, profile, signOut } = useAuth()
   const { t, toggleLanguage, language } = useLanguage()
+  const { getUserNotifications, getUnreadCount, markAsRead, markAllAsRead } = useNotificationsStore()
   const router = useRouter()
   const pathname = usePathname()
+
+  const notifications = user ? getUserNotifications(user.uid) : []
+  const unreadCount = user ? getUnreadCount(user.uid) : 0
 
   const handleSignOut = async () => {
     try {
@@ -25,12 +32,25 @@ export function Navigation() {
     }
   }
 
-  const navItems = [
-    { href: "/dashboard", label: t("dashboard"), icon: Home },
-    { href: "/marketplace", label: t("marketplace"), icon: Package },
-    { href: "/groups", label: t("group_buying"), icon: Users },
-    { href: "/orders", label: t("orders"), icon: FileText },
-  ]
+  const handleNotificationClick = (notification: any) => {
+    markAsRead(notification.id)
+    if (notification.actionUrl) {
+      router.push(notification.actionUrl)
+    }
+  }
+
+  const navItems = profile?.userType === "supplier" 
+    ? [
+        { href: "/dashboard", label: t("dashboard"), icon: Home },
+        { href: "/marketplace", label: t("marketplace"), icon: Package },
+        { href: "/orders", label: t("orders"), icon: FileText },
+      ]
+    : [
+        { href: "/dashboard", label: t("dashboard"), icon: Home },
+        { href: "/marketplace", label: t("marketplace"), icon: Package },
+        { href: "/groups", label: t("group_buying"), icon: Users },
+        { href: "/orders", label: t("orders"), icon: FileText },
+      ]
 
   if (profile?.userType === "admin") {
     navItems.push({ href: "/admin", label: t("admin"), icon: Settings })
@@ -68,9 +88,54 @@ export function Navigation() {
           <div className="hidden md:flex items-center space-x-4">
             <CartIcon />
             
-            <Button variant="ghost" size="icon">
-              <Bell className="h-4 w-4" />
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                    >
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="end">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">{t("notifications")}</h3>
+                    {unreadCount > 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => user && markAllAsRead(user.uid)}
+                      >
+                        {t("mark_all_read")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length > 0 ? (
+                    notifications.slice(0, 10).map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`p-4 border-b cursor-pointer hover:bg-gray-50 ${!notification.read ? 'bg-blue-50' : ''}`}
+                        onClick={() => handleNotificationClick(notification)}
+                      >
+                        <h4 className="font-medium text-sm">{notification.title}</h4>
+                        <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+                        <p className="text-xs text-gray-400 mt-2">{new Date(notification.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-gray-500">{t("no_notifications")}</div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
 
             <Button variant="ghost" onClick={toggleLanguage} className="flex items-center">
               <Globe className="h-4 w-4 mr-2" />

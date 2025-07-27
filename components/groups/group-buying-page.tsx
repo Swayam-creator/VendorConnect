@@ -11,152 +11,106 @@ import { Navigation } from "@/components/navigation"
 import { CreateGroupDialog } from "@/components/groups/create-group-dialog"
 import { GroupDetailsDialog } from "@/components/groups/group-details-dialog"
 import { useLanguage } from "@/hooks/use-language"
+import { useAuth } from "@/hooks/use-auth"
+import { useGroupsStore } from "@/stores/groups-store"
+import { useNotificationsStore } from "@/stores/notifications-store"
 import { Users, Clock, TrendingDown, MapPin } from "lucide-react"
 import { toast } from "sonner" // Add this for notifications
 
-interface GroupBuy {
-  id: string
-  title: string
-  description: string
-  organizer: string
-  location: string
-  targetAmount: number
-  currentAmount: number
-  participants: number
-  maxParticipants: number
-  timeLeft: string
-  category: string
-  savings: string
-  status: "active" | "completed" | "upcoming"
-}
-
 export function GroupBuyingPage() {
   const { t } = useLanguage()
-  const [activeGroups, setActiveGroups] = useState<GroupBuy[]>([])
-  const [myGroups, setMyGroups] = useState<GroupBuy[]>([])
-  const [selectedGroup, setSelectedGroup] = useState<GroupBuy | null>(null)
+  const { user, profile } = useAuth()
+  const { 
+    groups, 
+    createGroup, 
+    joinGroup, 
+    leaveGroup, 
+    deleteGroup, 
+    getActiveGroups, 
+    getUserGroups, 
+    isUserInGroup,
+    canUserDeleteGroup 
+  } = useGroupsStore()
+  const { addNotification } = useNotificationsStore()
+  
+  const [selectedGroup, setSelectedGroup] = useState<any>(null)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
-  const [userJoinedGroups, setUserJoinedGroups] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    // Demo data
-    const demoGroups: GroupBuy[] = [
-      {
-        id: "1",
-        title: "Bulk Onion Purchase - Andheri",
-        description: "Group buying 500kg onions at wholesale price from trusted supplier. Premium quality onions sourced directly from Maharashtra farms. Perfect for restaurants, hostels, and bulk consumers.",
-        organizer: "Raj Kumar",
-        location: "Andheri, Mumbai",
-        targetAmount: 15000,
-        currentAmount: 12000,
-        participants: 8,
-        maxParticipants: 12,
-        timeLeft: "2 days",
-        category: "vegetables",
-        savings: "25%",
-        status: "active",
-      },
-      {
-        id: "2",
-        title: "Spice Mix Wholesale Deal",
-        description: "Premium spices at 30% discount for bulk order. Includes turmeric, red chili powder, coriander powder, and garam masala. All spices are organic and freshly ground.",
-        organizer: "Priya Sharma",
-        location: "Karol Bagh, Delhi",
-        targetAmount: 25000,
-        currentAmount: 18500,
-        participants: 15,
-        maxParticipants: 20,
-        timeLeft: "5 days",
-        category: "spices",
-        savings: "30%",
-        status: "active",
-      },
-      {
-        id: "3",
-        title: "Cooking Oil Bulk Order",
-        description: "Sunflower oil 15L containers at wholesale rates. Cold-pressed, refined sunflower oil perfect for cooking and frying. Bulk packaging reduces per-unit cost significantly.",
-        organizer: "Mohammed Ali",
-        location: "Bandra, Mumbai",
-        targetAmount: 20000,
-        currentAmount: 20000,
-        participants: 10,
-        maxParticipants: 10,
-        timeLeft: "Completed",
-        category: "oils",
-        savings: "20%",
-        status: "completed",
-      },
-    ]
+  const activeGroups = getActiveGroups()
+  const myGroups = user ? getUserGroups(user.uid) : []
 
-    setActiveGroups(demoGroups.filter((g) => g.status === "active"))
-    setMyGroups(demoGroups.filter((g) => g.organizer === "Raj Kumar" || g.participants > 5))
-    
-    // Initialize some joined groups for demo
-    setUserJoinedGroups(new Set(["3"]))
-  }, [])
-
-  const handleCreateGroup = (newGroup: GroupBuy) => {
-    setActiveGroups(prev => [newGroup, ...prev])
-    setMyGroups(prev => [newGroup, ...prev])
+  const handleCreateGroup = (newGroup: any) => {
+    if (user && profile) {
+      createGroup({
+        ...newGroup,
+        organizerId: user.uid,
+        organizer: profile.name
+      })
+    }
     toast.success("Group created successfully!")
   }
 
-  const handleViewDetails = (group: GroupBuy) => {
+  const handleViewDetails = (group: any) => {
     setSelectedGroup(group)
     setIsDetailsDialogOpen(true)
   }
 
   const handleJoinGroup = (groupId: string) => {
-    const groupToJoin = activeGroups.find(g => g.id === groupId)
-    if (!groupToJoin) return
-
-    // Update the group in activeGroups
-    setActiveGroups(prev => prev.map(group => {
-      if (group.id === groupId) {
-        return {
-          ...group,
-          participants: group.participants + 1,
-          currentAmount: group.currentAmount + Math.floor(group.targetAmount / group.maxParticipants)
-        }
+    if (user && profile) {
+      const group = groups.find(g => g.id === groupId)
+      if (group) {
+        const contribution = Math.floor(group.targetAmount / group.maxParticipants)
+        joinGroup(groupId, user.uid, contribution)
+        
+        // Add notification for group organizer
+        addNotification({
+          userId: group.organizerId,
+          title: "New Group Member",
+          message: `${profile.name} joined your group "${group.title}"`,
+          type: "group",
+          read: false,
+          actionUrl: "/groups"
+        })
+        
+        toast.success(`Successfully joined "${group.title}"!`)
       }
-      return group
-    }))
+    }
+  }
 
-    // Add to userJoinedGroups
-    setUserJoinedGroups(prev => new Set(prev).add(groupId))
-
-    // Add to myGroups if not already there
-    setMyGroups(prev => {
-      const exists = prev.some(g => g.id === groupId)
-      if (!exists) {
-        const updatedGroup = {
-          ...groupToJoin,
-          participants: groupToJoin.participants + 1,
-          currentAmount: groupToJoin.currentAmount + Math.floor(groupToJoin.targetAmount / groupToJoin.maxParticipants)
-        }
-        return [updatedGroup, ...prev]
+  const handleLeaveGroup = (groupId: string) => {
+    if (user && profile) {
+      const group = groups.find(g => g.id === groupId)
+      if (group && window.confirm(t("confirm_leave_group"))) {
+        leaveGroup(groupId, user.uid)
+        
+        // Add notification for group organizer
+        addNotification({
+          userId: group.organizerId,
+          title: "Member Left Group",
+          message: `${profile.name} left your group "${group.title}"`,
+          type: "group",
+          read: false,
+          actionUrl: "/groups"
+        })
+        
+        toast.success(`Left "${group.title}" successfully`)
       }
-      return prev.map(group => {
-        if (group.id === groupId) {
-          return {
-            ...group,
-            participants: group.participants + 1,
-            currentAmount: group.currentAmount + Math.floor(group.targetAmount / group.maxParticipants)
-          }
-        }
-        return group
-      })
-    })
+    }
+  }
 
-    toast.success(`Successfully joined "${groupToJoin.title}"!`)
+  const handleDeleteGroup = (groupId: string) => {
+    if (user && window.confirm(t("confirm_delete_group"))) {
+      deleteGroup(groupId, user.uid)
+      toast.success("Group deleted successfully")
+    }
   }
 
   const getProgressPercentage = (current: number, target: number) => {
     return Math.min((current / target) * 100, 100)
   }
 
-  const isUserInGroup = (groupId: string) => {
-    return userJoinedGroups.has(groupId) || myGroups.some(g => g.id === groupId && g.organizer === "You")
+  const checkUserInGroup = (groupId: string) => {
+    return user ? isUserInGroup(groupId, user.uid) : false
   }
 
   return (
@@ -196,9 +150,14 @@ export function GroupBuyingPage() {
                         <Badge variant="secondary" className="bg-green-100 text-green-800">
                           {group.savings} {t("savings")}
                         </Badge>
-                        {isUserInGroup(group.id) && (
+                        {checkUserInGroup(group.id) && (
                           <Badge variant="outline" className="text-xs">
                             ✓ {t("joined")}
+                          </Badge>
+                        )}
+                        {user && canUserDeleteGroup(group.id, user.uid) && (
+                          <Badge variant="destructive" className="text-xs">
+                            {t("organizer")}
                           </Badge>
                         )}
                       </div>
@@ -222,7 +181,7 @@ export function GroupBuyingPage() {
                           <Users className="h-4 w-4 text-blue-600" />
                         </div>
                         <p className="text-sm font-medium">
-                          {group.participants}/{group.maxParticipants}
+                          {group.participants.length}/{group.maxParticipants}
                         </p>
                         <p className="text-xs text-gray-500">{t("participants")}</p>
                       </div>
@@ -254,13 +213,23 @@ export function GroupBuyingPage() {
                         >
                           {t("view_details")}
                         </Button>
-                        {!isUserInGroup(group.id) && group.participants < group.maxParticipants && (
+                        {!checkUserInGroup(group.id) && group.participants.length < group.maxParticipants && (
                           <Button 
                             size="sm"
                             onClick={() => handleJoinGroup(group.id)}
                             className="bg-green-600 hover:bg-green-700"
                           >
                             {t("join_group")}
+                          </Button>
+                        )}
+                        {checkUserInGroup(group.id) && user && !canUserDeleteGroup(group.id, user.uid) && (
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleLeaveGroup(group.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            {t("leave_group")}
                           </Button>
                         )}
                       </div>
@@ -294,6 +263,16 @@ export function GroupBuyingPage() {
                             {t("organizer")}
                           </Badge>
                         )}
+                        {user && canUserDeleteGroup(group.id, user.uid) && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteGroup(group.id)}
+                            className="ml-2"
+                          >
+                            {t("delete")}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -311,15 +290,27 @@ export function GroupBuyingPage() {
 
                     <div className="flex justify-between items-center pt-4 border-t">
                       <p className="text-sm text-gray-600">
-                        {group.participants} {t("participants")} • {group.savings} {t("savings")}
+                        {group.participants.length} {t("participants")} • {group.savings} {t("savings")}
                       </p>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleViewDetails(group)}
-                      >
-                        {t("view_details")}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleViewDetails(group)}
+                        >
+                          {t("view_details")}
+                        </Button>
+                        {checkUserInGroup(group.id) && user && !canUserDeleteGroup(group.id, user.uid) && (
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleLeaveGroup(group.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            {t("leave")}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -335,7 +326,7 @@ export function GroupBuyingPage() {
         isOpen={isDetailsDialogOpen}
         onClose={() => setIsDetailsDialogOpen(false)}
         onJoinGroup={handleJoinGroup}
-        isUserInGroup={selectedGroup ? isUserInGroup(selectedGroup.id) : false}
+        isUserInGroup={selectedGroup ? checkUserInGroup(selectedGroup.id) : false}
       />
     </div>
   )

@@ -9,6 +9,9 @@ import { Separator } from "@/components/ui/separator"
 import { Navigation } from "@/components/navigation"
 import { useCartStore } from "@/stores/cart-store"
 import { useLanguage } from "@/hooks/use-language"
+import { useAuth } from "@/hooks/use-auth"
+import { useOrdersStore } from "@/stores/orders-store"
+import { useNotificationsStore } from "@/stores/notifications-store"
 import { 
   ArrowLeft, 
   Plus, 
@@ -26,6 +29,9 @@ import { toast } from "sonner"
 export function CartPage() {
   const router = useRouter()
   const { t } = useLanguage()
+  const { user, profile } = useAuth()
+  const { addOrder } = useOrdersStore()
+  const { addNotification } = useNotificationsStore()
   const { 
     items, 
     totalItems, 
@@ -60,6 +66,41 @@ export function CartPage() {
     
     try {
       await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Create orders for each supplier
+      if (user && profile) {
+        Object.entries(groupedItems).forEach(([supplierId, group]) => {
+          const orderItems = group.items.map(item => ({
+            id: item.productId,
+            name: item.productName,
+            quantity: item.quantity,
+            price: item.price * item.quantity,
+            unit: item.unit
+          }))
+
+          addOrder({
+            vendorId: user.uid,
+            vendorName: profile.name,
+            supplierId: supplierId,
+            supplierName: group.supplierName,
+            items: orderItems,
+            totalAmount: group.subtotal,
+            status: 'pending',
+            supplierContact: "+91 98765 43210",
+            deliveryAddress: profile.location || "Default Address"
+          })
+
+          // Add notification for supplier
+          addNotification({
+            userId: supplierId,
+            title: "New Order Received",
+            message: `${profile.name} placed an order worth ₹${group.subtotal}`,
+            type: "order",
+            read: false,
+            actionUrl: "/orders"
+          })
+        })
+      }
       
       toast.success(t("order_placed_successfully"))
       clearCart()
