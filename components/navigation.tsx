@@ -66,7 +66,6 @@ export function Navigation() {
 
           {/* Desktop Right Side */}
           <div className="hidden md:flex items-center space-x-4">
-            {/* Add CartIcon here */}
             <CartIcon />
             
             <Button variant="ghost" size="icon">
@@ -93,7 +92,6 @@ export function Navigation() {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center space-x-2">
-            {/* Add CartIcon for mobile */}
             <CartIcon />
             <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}

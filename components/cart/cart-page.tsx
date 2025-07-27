@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Navigation } from "@/components/navigation"
-import { useCart } from "@/components/providers/cart-context"
+import { useCartStore } from "@/stores/cart-store"
 import { useLanguage } from "@/hooks/use-language"
 import { 
   ArrowLeft, 
@@ -19,25 +19,27 @@ import {
   CreditCard,
   Truck,
   Package,
-  MapPin,
-  Calendar,
-  Phone,
-  Star
+  Calendar
 } from "lucide-react"
 import { toast } from "sonner"
 
 export function CartPage() {
   const router = useRouter()
   const { t } = useLanguage()
-  const { items, totalItems, totalAmount, updateQuantity, removeFromCart, clearCart } = useCart()
+  const { 
+    items, 
+    totalItems, 
+    totalAmount, 
+    updateQuantity, 
+    removeFromCart, 
+    clearCart 
+  } = useCartStore()
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false)
 
   const handleQuantityUpdate = (id: string, newQuantity: number) => {
+    updateQuantity(id, newQuantity)
     if (newQuantity < 1) {
-      removeFromCart(id)
       toast.success(t("item_removed_from_cart"))
-    } else {
-      updateQuantity(id, newQuantity)
     }
   }
 
@@ -57,7 +59,6 @@ export function CartPage() {
     setIsProcessingCheckout(true)
     
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000))
       
       toast.success(t("order_placed_successfully"))
@@ -68,10 +69,6 @@ export function CartPage() {
     } finally {
       setIsProcessingCheckout(false)
     }
-  }
-
-  const handleContinueShopping = () => {
-    router.push('/marketplace')
   }
 
   // Group items by supplier
@@ -120,7 +117,7 @@ export function CartPage() {
             <ShoppingBag className="h-16 w-16 mx-auto text-gray-400 mb-4" />
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">{t("cart_empty")}</h2>
             <p className="text-gray-600 mb-6">{t("cart_empty_description")}</p>
-            <Button onClick={handleContinueShopping}>
+            <Button onClick={() => router.push('/marketplace')}>
               <Package className="h-4 w-4 mr-2" />
               {t("continue_shopping")}
             </Button>
@@ -265,9 +262,8 @@ export function CartPage() {
             ))}
           </div>
 
-          {/* Order Summary Sidebar */}
+          {/* Order Summary */}
           <div className="space-y-6">
-            {/* Order Summary */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -326,7 +322,7 @@ export function CartPage() {
 
                 <Button 
                   variant="outline" 
-                  onClick={handleContinueShopping}
+                  onClick={() => router.push('/marketplace')}
                   className="w-full"
                 >
                   <Package className="h-4 w-4 mr-2" />

@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Navigation } from "@/components/navigation"
 import { useLanguage } from "@/hooks/use-language"
-import { useCart } from "@/components/providers/cart-context"
+import { useCartStore } from "@/stores/cart-store"
+import { SupplierReviews } from "@/components/supplier/supplier-reviews" 
 import { 
   ArrowLeft, 
   Star, 
@@ -27,7 +28,6 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-// Your existing interfaces here...
 interface Product {
   id: string
   name: string
@@ -73,7 +73,7 @@ function ProductDetailsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useLanguage()
-  const { addToCart, getItemQuantity } = useCart()
+  const { addToCart, getItemQuantity } = useCartStore()
   
   const supplierId = searchParams.get('supplier')
   const [supplier, setSupplier] = useState<Supplier | null>(null)
@@ -88,7 +88,7 @@ function ProductDetailsContent() {
   useEffect(() => {
     // Demo data - in real app, fetch from API
     const demoSupplier: Supplier = {
-      id: supplierId || "1",
+      id: supplierId || "fresh-vegetables-co",
       name: "Fresh Vegetables Co.",
       rating: 4.8,
       totalReviews: 127,
@@ -533,48 +533,12 @@ function ProductDetailsContent() {
               </div>
             </TabsContent>
 
+            {/* Updated Reviews Tab - Replace the existing reviews TabsContent with this */}
             <TabsContent value="reviews" className="mt-6">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-semibold">{t("customer_reviews")}</h3>
-                  <Button variant="outline">{t("write_review")}</Button>
-                </div>
-                
-                <div className="space-y-4">
-                  {reviews.map((review) => (
-                    <Card key={review.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{review.customerName}</span>
-                            {review.verified && (
-                              <Badge variant="outline" className="text-xs">
-                                {t("verified_purchase")}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`h-4 w-4 ${
-                                  i < review.rating
-                                    ? 'fill-yellow-400 text-yellow-400'
-                                    : 'text-gray-300'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-gray-600 mb-2">{review.comment}</p>
-                        <span className="text-sm text-gray-500">
-                          {new Date(review.date).toLocaleDateString()}
-                        </span>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
+              <SupplierReviews 
+                supplierId={supplier.id}
+                supplierName={supplier.name}
+              />
             </TabsContent>
 
             <TabsContent value="about" className="mt-6">

@@ -5,14 +5,13 @@ import "./globals.css"
 import { AuthProvider } from "@/components/providers/auth-provider"
 import { LanguageProvider } from "@/components/providers/language-provider"
 import { Toaster } from "sonner"
-import { CartProvider } from "@/components/providers/cart-context";
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "VendorConnect - Street Food Vendor Marketplace",
   description: "Connect street food vendors with verified suppliers for affordable raw materials",
-    generator: 'v0.dev'
+  generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -23,14 +22,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <LanguageProvider>
-        <CartProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <LanguageProvider>
             <div className="min-h-screen bg-white">{children}</div>
             <Toaster position="top-right" />
-          </AuthProvider>
-        </CartProvider>
-        </LanguageProvider>
+          </LanguageProvider>
+        </AuthProvider>
       </body>
     </html>
   )

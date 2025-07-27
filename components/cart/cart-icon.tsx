@@ -4,16 +4,15 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ShoppingCart } from "lucide-react"
-import { useCart } from "@/components/providers/cart-context"
+import { useCartStore } from "@/stores/cart-store"
 import { useLanguage } from "@/hooks/use-language"
 
 export function CartIcon() {
   const router = useRouter()
-  const { totalItems } = useCart()
+  const { totalItems } = useCartStore()
   const { t } = useLanguage()
 
   const handleCartClick = () => {
-    console.log("Navigating to cart page") // Debug log
     router.push('/cart')
   }
 
