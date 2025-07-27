@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +25,7 @@ interface Supplier {
 
 export function MarketplacePage() {
   const { t } = useLanguage()
+  const router = useRouter();
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -218,10 +220,12 @@ export function MarketplacePage() {
 
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-green-600">{supplier.priceRange}</span>
-                    <Button size="sm">
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      {t("view_products")}
-                    </Button>
+                    <Button 
+                 size="sm"
+       onClick={() => router.push(`/product-details?supplier=${supplier.id}`)}>
+            <ShoppingCart className="h-4 w-4 mr-2" />
+           {t("view_products")}
+            </Button>
                   </div>
                 </div>
               </CardContent>

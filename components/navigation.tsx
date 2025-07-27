@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { useLanguage } from "@/hooks/use-language"
 import { ShoppingCart, Menu, X, Home, Package, Users, FileText, Settings, LogOut, Globe, Bell } from "lucide-react"
 import Link from "next/link"
+import { CartIcon } from "@/components/cart/cart-icon"
 import { useRouter, usePathname } from "next/navigation"
 
 export function Navigation() {
@@ -65,6 +66,9 @@ export function Navigation() {
 
           {/* Desktop Right Side */}
           <div className="hidden md:flex items-center space-x-4">
+            {/* Add CartIcon here */}
+            <CartIcon />
+            
             <Button variant="ghost" size="icon">
               <Bell className="h-4 w-4" />
             </Button>
@@ -88,7 +92,9 @@ export function Navigation() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center space-x-2">
+            {/* Add CartIcon for mobile */}
+            <CartIcon />
             <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </Button>

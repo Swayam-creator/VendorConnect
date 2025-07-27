@@ -1,3 +1,4 @@
+// Update your GroupBuyingPage component
 "use client"
 
 import { useState, useEffect } from "react"
@@ -7,8 +8,11 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Navigation } from "@/components/navigation"
+import { CreateGroupDialog } from "@/components/groups/create-group-dialog"
+import { GroupDetailsDialog } from "@/components/groups/group-details-dialog"
 import { useLanguage } from "@/hooks/use-language"
-import { Users, Clock, TrendingDown, Plus, MapPin } from "lucide-react"
+import { Users, Clock, TrendingDown, MapPin } from "lucide-react"
+import { toast } from "sonner" // Add this for notifications
 
 interface GroupBuy {
   id: string
@@ -30,6 +34,9 @@ export function GroupBuyingPage() {
   const { t } = useLanguage()
   const [activeGroups, setActiveGroups] = useState<GroupBuy[]>([])
   const [myGroups, setMyGroups] = useState<GroupBuy[]>([])
+  const [selectedGroup, setSelectedGroup] = useState<GroupBuy | null>(null)
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
+  const [userJoinedGroups, setUserJoinedGroups] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     // Demo data
@@ -37,7 +44,7 @@ export function GroupBuyingPage() {
       {
         id: "1",
         title: "Bulk Onion Purchase - Andheri",
-        description: "Group buying 500kg onions at wholesale price",
+        description: "Group buying 500kg onions at wholesale price from trusted supplier. Premium quality onions sourced directly from Maharashtra farms. Perfect for restaurants, hostels, and bulk consumers.",
         organizer: "Raj Kumar",
         location: "Andheri, Mumbai",
         targetAmount: 15000,
@@ -52,7 +59,7 @@ export function GroupBuyingPage() {
       {
         id: "2",
         title: "Spice Mix Wholesale Deal",
-        description: "Premium spices at 30% discount for bulk order",
+        description: "Premium spices at 30% discount for bulk order. Includes turmeric, red chili powder, coriander powder, and garam masala. All spices are organic and freshly ground.",
         organizer: "Priya Sharma",
         location: "Karol Bagh, Delhi",
         targetAmount: 25000,
@@ -67,7 +74,7 @@ export function GroupBuyingPage() {
       {
         id: "3",
         title: "Cooking Oil Bulk Order",
-        description: "Sunflower oil 15L containers at wholesale rates",
+        description: "Sunflower oil 15L containers at wholesale rates. Cold-pressed, refined sunflower oil perfect for cooking and frying. Bulk packaging reduces per-unit cost significantly.",
         organizer: "Mohammed Ali",
         location: "Bandra, Mumbai",
         targetAmount: 20000,
@@ -83,10 +90,73 @@ export function GroupBuyingPage() {
 
     setActiveGroups(demoGroups.filter((g) => g.status === "active"))
     setMyGroups(demoGroups.filter((g) => g.organizer === "Raj Kumar" || g.participants > 5))
+    
+    // Initialize some joined groups for demo
+    setUserJoinedGroups(new Set(["3"]))
   }, [])
+
+  const handleCreateGroup = (newGroup: GroupBuy) => {
+    setActiveGroups(prev => [newGroup, ...prev])
+    setMyGroups(prev => [newGroup, ...prev])
+    toast.success("Group created successfully!")
+  }
+
+  const handleViewDetails = (group: GroupBuy) => {
+    setSelectedGroup(group)
+    setIsDetailsDialogOpen(true)
+  }
+
+  const handleJoinGroup = (groupId: string) => {
+    const groupToJoin = activeGroups.find(g => g.id === groupId)
+    if (!groupToJoin) return
+
+    // Update the group in activeGroups
+    setActiveGroups(prev => prev.map(group => {
+      if (group.id === groupId) {
+        return {
+          ...group,
+          participants: group.participants + 1,
+          currentAmount: group.currentAmount + Math.floor(group.targetAmount / group.maxParticipants)
+        }
+      }
+      return group
+    }))
+
+    // Add to userJoinedGroups
+    setUserJoinedGroups(prev => new Set(prev).add(groupId))
+
+    // Add to myGroups if not already there
+    setMyGroups(prev => {
+      const exists = prev.some(g => g.id === groupId)
+      if (!exists) {
+        const updatedGroup = {
+          ...groupToJoin,
+          participants: groupToJoin.participants + 1,
+          currentAmount: groupToJoin.currentAmount + Math.floor(groupToJoin.targetAmount / groupToJoin.maxParticipants)
+        }
+        return [updatedGroup, ...prev]
+      }
+      return prev.map(group => {
+        if (group.id === groupId) {
+          return {
+            ...group,
+            participants: group.participants + 1,
+            currentAmount: group.currentAmount + Math.floor(group.targetAmount / group.maxParticipants)
+          }
+        }
+        return group
+      })
+    })
+
+    toast.success(`Successfully joined "${groupToJoin.title}"!`)
+  }
 
   const getProgressPercentage = (current: number, target: number) => {
     return Math.min((current / target) * 100, 100)
+  }
+
+  const isUserInGroup = (groupId: string) => {
+    return userJoinedGroups.has(groupId) || myGroups.some(g => g.id === groupId && g.organizer === "You")
   }
 
   return (
@@ -99,10 +169,7 @@ export function GroupBuyingPage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">{t("group_buying")}</h1>
             <p className="text-gray-600">{t("group_buying_subtitle")}</p>
           </div>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            {t("create_group")}
-          </Button>
+          <CreateGroupDialog onCreateGroup={handleCreateGroup} />
         </div>
 
         <Tabs defaultValue="active" className="space-y-6">
@@ -123,11 +190,18 @@ export function GroupBuyingPage() {
                           <MapPin className="h-4 w-4 mr-1" />
                           {group.location}
                         </CardDescription>
-                        <p className="text-sm text-gray-600">{group.description}</p>
+                        <p className="text-sm text-gray-600 line-clamp-2">{group.description}</p>
                       </div>
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        {group.savings} {t("savings")}
-                      </Badge>
+                      <div className="flex flex-col gap-2">
+                        <Badge variant="secondary" className="bg-green-100 text-green-800">
+                          {group.savings} {t("savings")}
+                        </Badge>
+                        {isUserInGroup(group.id) && (
+                          <Badge variant="outline" className="text-xs">
+                            ✓ {t("joined")}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
 
@@ -172,7 +246,24 @@ export function GroupBuyingPage() {
                       <p className="text-sm text-gray-600">
                         {t("organized_by")} <span className="font-medium">{group.organizer}</span>
                       </p>
-                      <Button size="sm">{t("join_group")}</Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleViewDetails(group)}
+                        >
+                          {t("view_details")}
+                        </Button>
+                        {!isUserInGroup(group.id) && group.participants < group.maxParticipants && (
+                          <Button 
+                            size="sm"
+                            onClick={() => handleJoinGroup(group.id)}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            {t("join_group")}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -192,9 +283,18 @@ export function GroupBuyingPage() {
                           <MapPin className="h-4 w-4 mr-1" />
                           {group.location}
                         </CardDescription>
-                        <p className="text-sm text-gray-600">{group.description}</p>
+                        <p className="text-sm text-gray-600 line-clamp-2">{group.description}</p>
                       </div>
-                      <Badge variant={group.status === "completed" ? "default" : "secondary"}>{t(group.status)}</Badge>
+                      <div className="flex flex-col gap-2">
+                        <Badge variant={group.status === "completed" ? "default" : "secondary"}>
+                          {t(group.status)}
+                        </Badge>
+                        {group.organizer === "You" && (
+                          <Badge variant="outline" className="text-xs">
+                            {t("organizer")}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
 
@@ -213,7 +313,11 @@ export function GroupBuyingPage() {
                       <p className="text-sm text-gray-600">
                         {group.participants} {t("participants")} • {group.savings} {t("savings")}
                       </p>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleViewDetails(group)}
+                      >
                         {t("view_details")}
                       </Button>
                     </div>
@@ -224,6 +328,15 @@ export function GroupBuyingPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Group Details Dialog */}
+      <GroupDetailsDialog
+        group={selectedGroup}
+        isOpen={isDetailsDialogOpen}
+        onClose={() => setIsDetailsDialogOpen(false)}
+        onJoinGroup={handleJoinGroup}
+        isUserInGroup={selectedGroup ? isUserInGroup(selectedGroup.id) : false}
+      />
     </div>
   )
 }
